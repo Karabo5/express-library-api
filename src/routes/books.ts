@@ -1,4 +1,4 @@
-import { Router, Request, Response } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { body,param, validationResult } from "express-validator";
 import { books } from "../models/books";
 import { authors } from "../models/authors";
@@ -31,27 +31,41 @@ router.post("/",[
     .withMessage("authorId is required")
     .isInt()
     .withMessage("authorId must be a number")
-], (req:Request, res:Response) => {
+], (req:Request, res:Response, next: NextFunction) => {
     
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    try {
 
-    const { title, year, authorId } = req.body;
+        const errors = validationResult(req);
+        if (!errors.isEmpty()){
+            const err: any = new Error("Validation failed");
+            err.status = 400;
+            err.details = errors.array();
+            throw err;
+        }
+        const { title, year, authorId } = req.body;
 
-    const authorExists = authors.find(author => author.id === parseInt(authorId));
-    if (!authorExists){
+        const authorExists = authors.find(author => author.id === parseInt(authorId));
+        if (!authorExists){                       
+            const err: any = new Error("Invalid authorId: author not found");
+            err.status = 400;
+            throw err;
+        }
 
-        return res.status(400).json({ error: "Invalid authorId: author not found" });
-    } 
-    
-    const newBook = {
-        id: books.length + 1 ,
-        title, 
-        year,
-        authorId: parseInt(authorId)
+        const duplicateBooks = books.find((book) => book.title === title && book.authorId === parseInt(authorId));
+        if(duplicateBooks){
+            const err : any = new Error ("Duplicate book: this author already has a book with that title");
+            err.status = 409;
+            throw err;
+        }
+
+        const newBook = {id: books.length + 1 ,title, year,authorId: parseInt(authorId)}
+        books.push(newBook);
+        res.status(201).json(newBook)
+            
+    } catch (error) {
+        next(error)
     }
-    books.push(newBook);
-    res.status(201).json(newBook)
+    
 })
 
 router.put(
