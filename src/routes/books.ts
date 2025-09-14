@@ -6,10 +6,35 @@ import { authors } from "../models/authors";
 const router = Router();
 
 router.get("/", (req:Request, res:Response) => {
-    res.status(200).json(books);
+
+        let results = [... books]
+
+        if(req.query.title){
+            const title = String(req.query.title).toLowerCase();
+            results = results.filter((book) => book.title.toLowerCase().includes(title))
+        }
+
+        if(req.query.year){
+            const year = parseInt(String(req.query.year))
+            results = results.filter((book) => book.year === year)
+        }
+
+        if (req.query.sortBy) {
+            const sortBy = String(req.query.sortBy);
+
+            results.sort((a: any, b: any) => {
+                if (a[sortBy] > b[sortBy]) return 1;
+                if (a[sortBy] < b[sortBy]) return -1;
+                return 0;
+            });
+        }
+            res.status(200).json(results);
+    
 })
 
-router.get("/:id",[param("id").isInt().withMessage("ID must be an integer")], (req:Request, res:Response) => {
+router.get("/:id",
+    [param("id").isInt().withMessage("ID must be an integer")], 
+    (req:Request, res:Response) => {
   
     const errors = validationResult(req);
     if(!errors.isEmpty()){
