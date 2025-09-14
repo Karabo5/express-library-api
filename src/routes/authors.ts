@@ -1,6 +1,7 @@
-import { Router, Request, Response } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { body, param, validationResult } from "express-validator";
 import { authors } from "../models/authors";
+import { books } from "../models/books";
 
 const router = Router()
 
@@ -80,5 +81,34 @@ router.delete("/:id", (req:Request , res: Response)=> {
     const removed = authors.splice(indexId, 1)[0];
     res.status(200).json({ message: "Author deleted", author: removed });
 })
+
+router.get("/:id/books",
+    [param("id").isInt().withMessage("Author ID must be an integer")],
+    (req:Request, res:Response, next: NextFunction) => {
+        try {
+            const errors = validationResult(req);
+
+            if(!errors.isEmpty()){
+                const err : any = new Error("Validation failed");
+                err.status = 400;
+                err.details = errors.array();
+                throw err;
+            }
+
+            const authorId = parseInt(req.params.id);
+            const authorExists = authors.find((author) => author.id === authorId)
+
+            if(!authorExists){
+                const err: any = new Error("Author not found");
+                err.status = 404;
+                throw err;
+            }
+
+            const authorBooks = books.filter((book) => book.authorId === authorId);
+            res.status(200).json(authorBooks)
+        } catch (error) {
+            next(error)
+        }
+    })
 
 export default router
